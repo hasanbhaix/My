@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MPD Player with JW Player</title>
+    <script src="https://content.jwplatform.com/libraries/SAHhwvZq.js"></script>
+    <style>
+        :root {
+            --primary: #3366ff;
+            --dark: #1a1a1a;
+            --light: #f8f9fa;
+            --danger: #ff4444;
+            --success: #00c851;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            color: var(--dark);
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            padding: 25px;
+        }
+        
+        h1 {
+            color: var(--primary);
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        
+        .player-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+        }
+        
+        .input-panel {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        input:focus {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(51, 102, 255, 0.1);
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 20px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s;
+            width: 100%;
+        }
+        
+        .btn:hover {
+            background: #2a56e6;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            margin-top: 10px;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .video-container {
+            background: black;
+            border-radius: 8px;
+            overflow: hidden;
+            height: 0;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            position: relative;
+        }
+        
+        #jw-player {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .status-panel {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .status-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .status-label {
+            font-weight: 600;
+            color: #666;
+        }
+        
+        .status-value {
+            font-family: monospace;
+        }
+        
+        .error-display {
+            background-color: #ffebee;
+            color: var(--danger);
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+            border-left: 4px solid var(--danger);
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            .player-section {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>MPD Player with JW Player</h1>
+        
+        <div class="player-section">
+            <div class="input-panel">
+                <div class="form-group">
+                    <label for="mpd-url">MPD Link:</label>
+                    <input type="text" id="mpd-url" placeholder="Enter MPD URL" value="https://otte.live.fly.ww.aiv-cdn.net/gru-nitro/live/clients/dash-sd/enc/rkhugudynd/out/v1/f7763e695c3b469594ed89fa163ebf0c/cenc-sd.mpd">
+                </div>
+                
+                <div class="form-group">
+                    <label for="key-id">Key ID:</label>
+                    <input type="text" id="key-id" placeholder="Enter Key ID" value="eaea45512d137def15b209a089cafd14">
+                </div>
+                
+                <div class="form-group">
+                    <label for="key">Key:</label>
+                    <input type="text" id="key" placeholder="Enter Key" value="8d42db746ed0c4df61729b0d68d42bd7">
+                </div>
+                
+                <button class="btn" onclick="loadStream()">Load Stream</button>
+                <button class="btn btn-secondary" onclick="stopStream()">Stop</button>
+                
+                <div id="error-display" class="error-display"></div>
+            </div>
+            
+            <div class="video-container">
+                <div id="jw-player"></div>
+            </div>
+        </div>
+        
+        <div class="status-panel">
+            <div class="status-item">
+                <span class="status-label">Player State:</span>
+                <span class="status-value" id="player-state">Idle</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Stream Status:</span>
+                <span class="status-value" id="stream-status">Not loaded</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">DRM Status:</span>
+                <span class="status-value" id="drm-status">None</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // JW Player setup
+        const playerDiv = document.getElementById('jw-player');
+        const playerInstance = jwplayer(playerDiv);
+        
+        // Set up player with basic configuration
+        playerInstance.setup({
+            width: '100%',
+            aspectratio: '16:9',
+            autostart: false,
+            primary: 'html5',
+            playbackRateControls: true
+        });
+        
+        // Update player state display
+        function updatePlayerState(state) {
+            document.getElementById('player-state').textContent = state;
+        }
+        
+        // Player event listeners
+        playerInstance.on('ready', () => {
+            updatePlayerState('Ready');
+        });
+        
+        playerInstance.on('play', () => {
+            updatePlayerState('Playing');
+        });
+        
+        playerInstance.on('pause', () => {
+            updatePlayerState('Paused');
+        });
+        
+        playerInstance.on('complete', () => {
+            updatePlayerState('Completed');
+        });
+        
+        playerInstance.on('error', (error) => {
+            showError(error.message);
+            updatePlayerState('Error');
+            document.getElementById('stream-status').textContent = 'Error loading stream';
+        });
+        
+        // Load stream function
+        function loadStream() {
+            try {
+                hideError();
+                
+                const mpdUrl = document.getElementById('mpd-url').value;
+                const keyId = document.getElementById('key-id').value;
+                const key = document.getElementById('key').value;
+                
+                if (!mpdUrl) {
+                    throw new Error('Please enter an MPD URL');
+                }
+                
+                if (!keyId || !key) {
+                    throw new Error('Please enter both Key ID and Key');
+                }
+                
+                // Create ClearKey configuration
+                const clearkeyConfig = {
+                    clearkeys: {
+                        [keyId]: key
+                    }
+                };
+                
+                // Configure JW Player
+                playerInstance.setup({
+                    file: mpdUrl,
+                    width: '100%',
+                    aspectratio: '16:9',
+                    autostart: true,
+                    drm: clearkeyConfig,
+                    primary: 'html5'
+                });
+                
+                document.getElementById('stream-status').textContent = 'Loading...';
+                document.getElementById('drm-status').textContent = 'ClearKey';
+                
+                playerInstance.on('firstFrame', () => {
+                    document.getElementById('stream-status').textContent = 'Playing';
+                });
+                
+            } catch (error) {
+                showError(error);
+                console.error('Error loading stream:', error);
+                document.getElementById('stream-status').textContent = 'Error';
+            }
+        }
+        
+        // Stop stream function
+        function stopStream() {
+            playerInstance.stop();
+            updatePlayerState('Stopped');
+            document.getElementById('stream-status').textContent = 'Stopped';
+            document.getElementById('drm-status').textContent = 'None';
+            hideError();
+        }
+        
+        // Error handling
+        function showError(message) {
+            const errorDisplay = document.getElementById('error-display');
+            errorDisplay.textContent = message;
+            errorDisplay.style.display = 'block';
+        }
+        
+        function hideError() {
+            const errorDisplay = document.getElementById('error-display');
+            errorDisplay.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
