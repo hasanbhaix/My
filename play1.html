@@ -6,6 +6,7 @@
     <title>MPD Player with Shaka Player</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.compiled.js"></script>
     <style>
+        /* Your existing CSS styles remain the same */
         :root {
             --primary: #3366ff;
             --dark: #1a1a1a;
@@ -189,8 +190,8 @@
                     <input type="text" id="key" placeholder="Enter Key" value="8d42db746ed0c4df61729b0d68d42bd7">
                 </div>
                 
-                <button class="btn" onclick="loadStream()">Load Stream</button>
-                <button class="btn btn-secondary" onclick="stopStream()">Stop</button>
+                <button class="btn" id="load-btn">Load Stream</button>
+                <button class="btn btn-secondary" id="stop-btn">Stop</button>
                 
                 <div id="error-display" class="error-display"></div>
             </div>
@@ -217,9 +218,48 @@
     </div>
 
     <script>
-        // Initialize Shaka Player
-        const videoElement = document.getElementById('video-player');
-        const player = new shaka.Player(videoElement);
+        // Global player variable
+        let player;
+        
+        // Initialize the player when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize Shaka Player
+            initPlayer();
+            
+            // Set up event listeners for buttons
+            document.getElementById('load-btn').addEventListener('click', loadStream);
+            document.getElementById('stop-btn').addEventListener('click', stopStream);
+        });
+        
+        function initPlayer() {
+            // Check if the browser supports the basic features we need
+            if (!shaka.Player.isBrowserSupported()) {
+                showError('Browser not supported by Shaka Player');
+                console.error('Browser not supported!');
+                return;
+            }
+            
+            // Create player instance
+            const videoElement = document.getElementById('video-player');
+            player = new shaka.Player(videoElement);
+            
+            // Listen for error events
+            player.addEventListener('error', onPlayerError);
+            
+            // Video element event listeners
+            videoElement.addEventListener('playing', () => updatePlayerState('Playing'));
+            videoElement.addEventListener('pause', () => updatePlayerState('Paused'));
+            videoElement.addEventListener('ended', () => updatePlayerState('Completed'));
+            videoElement.addEventListener('waiting', () => updatePlayerState('Buffering'));
+            
+            console.log('Shaka Player initialized');
+        }
+        
+        function onPlayerError(event) {
+            showError(event.detail.message);
+            updatePlayerState('Error');
+            updateStreamStatus('Error loading stream');
+        }
         
         // Update player state display
         function updatePlayerState(state) {
@@ -235,29 +275,6 @@
         function updateDrmStatus(status) {
             document.getElementById('drm-status').textContent = status;
         }
-        
-        // Player event listeners
-        videoElement.addEventListener('playing', () => {
-            updatePlayerState('Playing');
-        });
-        
-        videoElement.addEventListener('pause', () => {
-            updatePlayerState('Paused');
-        });
-        
-        videoElement.addEventListener('ended', () => {
-            updatePlayerState('Completed');
-        });
-        
-        videoElement.addEventListener('waiting', () => {
-            updatePlayerState('Buffering');
-        });
-        
-        player.addEventListener('error', (error) => {
-            showError(error.detail.message);
-            updatePlayerState('Error');
-            updateStreamStatus('Error loading stream');
-        });
         
         // Load stream function
         async function loadStream() {
@@ -280,6 +297,17 @@
                 const drmConfiguration = {
                     clearKeys: {
                         [keyId]: key
+                    },
+                    // Advanced DRM settings for ClearKey
+                    advanced: {
+                        'com.widevine.alpha': {
+                            audioRobustness: 'SW_SECURE_CRYPTO',
+                            videoRobustness: 'SW_SECURE_CRYPTO'
+                        },
+                        'com.microsoft.playready': {
+                            audioRobustness: '3000',
+                            videoRobustness: '3000'
+                        }
                     }
                 };
                 
@@ -308,12 +336,15 @@
         
         // Stop stream function
         function stopStream() {
-            player.unload();
-            videoElement.pause();
-            updatePlayerState('Stopped');
-            updateStreamStatus('Stopped');
-            updateDrmStatus('None');
-            hideError();
+            if (player) {
+                player.unload();
+                const videoElement = document.getElementById('video-player');
+                videoElement.pause();
+                updatePlayerState('Stopped');
+                updateStreamStatus('Stopped');
+                updateDrmStatus('None');
+                hideError();
+            }
         }
         
         // Error handling
@@ -327,17 +358,6 @@
             const errorDisplay = document.getElementById('error-display');
             errorDisplay.style.display = 'none';
         }
-        
-        // Initialize Shaka Player when the page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            // Check if the browser supports the basic features we need
-            if (!shaka.Player.isBrowserSupported()) {
-                showError('Browser not supported by Shaka Player');
-                console.error('Browser not supported!');
-            } else {
-                console.log('Shaka Player initialized');
-            }
-        });
     </script>
 </body>
 </html>
