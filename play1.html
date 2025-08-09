@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MPD Player with JW Player</title>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <title>MPD Player with Shaka Player</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.compiled.js"></script>
     <style>
         :root {
             --primary: #3366ff;
@@ -113,7 +113,7 @@
             position: relative;
         }
         
-        #jw-player {
+        #video-player {
             position: absolute;
             top: 0;
             left: 0;
@@ -170,7 +170,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>MPD Player with JW Player</h1>
+        <h1>MPD Player with Shaka Player</h1>
         
         <div class="player-section">
             <div class="input-panel">
@@ -196,7 +196,7 @@
             </div>
             
             <div class="video-container">
-                <div id="jw-player"></div>
+                <video id="video-player" autoplay controls></video>
             </div>
         </div>
         
@@ -217,49 +217,50 @@
     </div>
 
     <script>
-        // JW Player setup
-        const playerDiv = document.getElementById('jw-player');
-        const playerInstance = jwplayer(playerDiv);
-        
-        // Set up player with basic configuration
-        playerInstance.setup({
-            width: '100%',
-            aspectratio: '16:9',
-            autostart: false,
-            primary: 'html5',
-            playbackRateControls: true
-        });
+        // Initialize Shaka Player
+        const videoElement = document.getElementById('video-player');
+        const player = new shaka.Player(videoElement);
         
         // Update player state display
         function updatePlayerState(state) {
             document.getElementById('player-state').textContent = state;
         }
         
-        // Player event listeners
-        playerInstance.on('ready', () => {
-            updatePlayerState('Ready');
-        });
+        // Update stream status
+        function updateStreamStatus(status) {
+            document.getElementById('stream-status').textContent = status;
+        }
         
-        playerInstance.on('play', () => {
+        // Update DRM status
+        function updateDrmStatus(status) {
+            document.getElementById('drm-status').textContent = status;
+        }
+        
+        // Player event listeners
+        videoElement.addEventListener('playing', () => {
             updatePlayerState('Playing');
         });
         
-        playerInstance.on('pause', () => {
+        videoElement.addEventListener('pause', () => {
             updatePlayerState('Paused');
         });
         
-        playerInstance.on('complete', () => {
+        videoElement.addEventListener('ended', () => {
             updatePlayerState('Completed');
         });
         
-        playerInstance.on('error', (error) => {
-            showError(error.message);
+        videoElement.addEventListener('waiting', () => {
+            updatePlayerState('Buffering');
+        });
+        
+        player.addEventListener('error', (error) => {
+            showError(error.detail.message);
             updatePlayerState('Error');
-            document.getElementById('stream-status').textContent = 'Error loading stream';
+            updateStreamStatus('Error loading stream');
         });
         
         // Load stream function
-        function loadStream() {
+        async function loadStream() {
             try {
                 hideError();
                 
@@ -275,43 +276,43 @@
                     throw new Error('Please enter both Key ID and Key');
                 }
                 
-                // Create ClearKey configuration
-                const clearkeyConfig = {
-                    clearkeys: {
+                // Configure ClearKey DRM
+                const drmConfiguration = {
+                    clearKeys: {
                         [keyId]: key
                     }
                 };
                 
-                // Configure JW Player
-                playerInstance.setup({
-                    file: mpdUrl,
-                    width: '100%',
-                    aspectratio: '16:9',
-                    autostart: true,
-                    drm: clearkeyConfig,
-                    primary: 'html5'
+                updatePlayerState('Loading');
+                updateStreamStatus('Loading...');
+                updateDrmStatus('ClearKey');
+                
+                // Configure player
+                player.configure({
+                    drm: drmConfiguration
                 });
                 
-                document.getElementById('stream-status').textContent = 'Loading...';
-                document.getElementById('drm-status').textContent = 'ClearKey';
+                // Load the manifest
+                await player.load(mpdUrl);
                 
-                playerInstance.on('firstFrame', () => {
-                    document.getElementById('stream-status').textContent = 'Playing';
-                });
+                updatePlayerState('Playing');
+                updateStreamStatus('Playing');
                 
             } catch (error) {
-                showError(error);
+                showError(error.message);
                 console.error('Error loading stream:', error);
-                document.getElementById('stream-status').textContent = 'Error';
+                updatePlayerState('Error');
+                updateStreamStatus('Error');
             }
         }
         
         // Stop stream function
         function stopStream() {
-            playerInstance.stop();
+            player.unload();
+            videoElement.pause();
             updatePlayerState('Stopped');
-            document.getElementById('stream-status').textContent = 'Stopped';
-            document.getElementById('drm-status').textContent = 'None';
+            updateStreamStatus('Stopped');
+            updateDrmStatus('None');
             hideError();
         }
         
@@ -326,6 +327,17 @@
             const errorDisplay = document.getElementById('error-display');
             errorDisplay.style.display = 'none';
         }
+        
+        // Initialize Shaka Player when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check if the browser supports the basic features we need
+            if (!shaka.Player.isBrowserSupported()) {
+                showError('Browser not supported by Shaka Player');
+                console.error('Browser not supported!');
+            } else {
+                console.log('Shaka Player initialized');
+            }
+        });
     </script>
 </body>
 </html>
